@@ -765,10 +765,9 @@ class _SettingsScreenState extends State<SettingsScreen>
                       onPressed: () {
                         final name = nameController.text.trim();
                         final websocketUrl = websocketUrlController.text.trim();
-                        final otaUrl = otaUrlController.text.trim() == "-1" ? " ": otaUrlController.text.trim();
+                        final otaUrl = otaUrlController.text.trim();
                         final macAddress = macAddressController.text.trim();
                         final token = tokenController.text.trim();
-
                         if (name.isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
@@ -790,7 +789,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                         ).addXiaozhiConfig(
                           name,
                           customWebsocketUrl:
-                              websocketUrl.isNotEmpty ? otaUrl : null,
+                              websocketUrl.isNotEmpty ? websocketUrl : null,
                           customOtaUrl:
                               otaUrl.isNotEmpty ? otaUrl : null,
                           customMacAddress:

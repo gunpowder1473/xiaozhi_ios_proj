@@ -52,7 +52,7 @@ class ConfigProvider extends ChangeNotifier {
     final macAddress;
     final otaUrl;
     final websocketUrl;
-  
+    customOtaUrl = customOtaUrl=='-1' ? "" : customWebsocketUrl;
     websocketUrl = customWebsocketUrl ?? 'wss://api.tenclass.net/xiaozhi/v1/';
     otaUrl = customOtaUrl ?? 'https://api.tenclass.net/xiaozhi/ota/';
     macAddress = customMacAddress ?? await _getDeviceMacAddress();
