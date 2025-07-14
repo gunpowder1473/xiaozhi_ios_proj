@@ -1,7 +1,7 @@
 # 小智AI IOS 客户端
 
 >一个基于WebSocket的Android语音对话应用,支持实时语音交互和文字对话。
->基于Flutter框架开发的小智AI助手，支持多平台（iOS、Android、Web、Windows、macOS、Linux）部署，提供实时语音交互和文字对话功能。
+>基于Flutter框架开发的小智AI助手，提供实时语音交互和文字对话功能。
 
 
 - 基本上修改自https://github.com/TOM88812/xiaozhi-android-client/
