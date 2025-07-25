@@ -23,6 +23,8 @@ enum XiaozhiServiceEventType {
   voiceCallStart,
   voiceCallEnd,
   userMessage,
+  steaming,
+  steamEnd,
 }
 
 /// 小智服务事件
@@ -60,6 +62,7 @@ class XiaozhiService {
   final List<XiaozhiServiceListener> _listeners = [];
   StreamSubscription? _audioStreamSubscription;
   bool _isVoiceCallActive = false;
+  bool _isSending = false;
   WebSocketChannel? _ws;
   bool _hasStartedCall = false;
   MessageListener? _messageListener;
@@ -277,7 +280,7 @@ class XiaozhiService {
 
       // 添加消息监听器，监听所有可能的回复
       void onceListener(XiaozhiServiceEvent event) {
-        if (event.type == XiaozhiServiceEventType.textMessage) {
+        if (event.type == XiaozhiServiceEventType.steaming) {
           // 忽略echo消息（即我们发送的消息）
           if (event.data == message) {
             print('$TAG: 忽略echo消息: ${event.data}');
@@ -300,7 +303,7 @@ class XiaozhiService {
 
       // 先添加监听器，确保不会错过任何消息
       addListener(onceListener);
-
+      _isSending = true;
       // 发送文本请求
       print('$TAG: 发送文本请求: $message');
       _webSocketManager!.sendTextRequest(message);
@@ -652,11 +655,16 @@ class XiaozhiService {
           if (state == 'sentence_start' && text.isNotEmpty) {
             print('$TAG: 收到TTS句子: $text');
             _dispatchEvent(
-              XiaozhiServiceEvent(XiaozhiServiceEventType.textMessage, text),
+              XiaozhiServiceEvent(XiaozhiServiceEventType.steaming, text),
             );
+          }
+          if (state == 'sentence_end' && text.isNotEmpty) {
           }
           if (state == 'start') {}
           if (state == 'stop') {
+            _dispatchEvent(
+              XiaozhiServiceEvent(XiaozhiServiceEventType.steamEnd, ''),
+            );
             if (_isVoiceCallActive) {
               _sendListenMessage();
             }

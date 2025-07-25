@@ -10,12 +10,14 @@ import 'package:path_provider/path_provider.dart';
 class ConversationProvider extends ChangeNotifier {
   List<Conversation> _conversations = [];
   Map<String, List<Message>> _messages = {};
+  static Map<String, bool> _formerSteamEnd = {};
 
   // 保存最后删除的会话及其消息，用于撤销删除
   Conversation? _lastDeletedConversation;
   List<Message>? _lastDeletedMessages;
 
   List<Conversation> get conversations => _conversations;
+  static Map<String, bool> get formerSteamEnd => _formerSteamEnd;
   List<Conversation> get pinnedConversations =>
       _conversations.where((conv) => conv.isPinned).toList();
   List<Conversation> get unpinnedConversations =>
@@ -223,6 +225,7 @@ class ConversationProvider extends ChangeNotifier {
     required String content,
     String? id,
     bool isImage = false,
+    bool isNewLine = true,
     String? imageLocalPath,
     String? fileId,
   }) async {
@@ -249,23 +252,38 @@ class ConversationProvider extends ChangeNotifier {
       }
     }
 
-    final newMessage = Message(
-      id: messageId,
-      conversationId: conversationId,
-      role: role,
-      content: content,
-      timestamp: DateTime.now(),
-      isRead: role == MessageRole.user,
-      isImage: isImage,
-      imageLocalPath: imageLocalPath,
-      fileId: fileId,
-    );
+    if (isNewLine || _messages[conversationId]!.isEmpty) {
+      final newMessage = Message(
+        id: messageId,
+        conversationId: conversationId,
+        role: role,
+        content: content,
+        timestamp: DateTime.now(),
+        isRead: role == MessageRole.user,
+        isImage: isImage,
+        imageLocalPath: imageLocalPath,
+        fileId: fileId,
+      );
 
-    _messages[conversationId] = [
-      ...(_messages[conversationId] ?? []),
-      newMessage,
-    ];
-
+      _messages[conversationId] = [
+        ...(_messages[conversationId] ?? []),
+        newMessage,
+      ];
+    } else {
+      final _content = _messages[conversationId]!.last.content + content;
+      final _Message = Message(
+        id: messageId,
+        conversationId: conversationId,
+        role: role,
+        content: _content,
+        timestamp: DateTime.now(),
+        isRead: role == MessageRole.user,
+        isImage: isImage,
+        imageLocalPath: imageLocalPath,
+        fileId: fileId,
+      );
+      _messages[conversationId]!.last = _Message;
+    }
     // Update conversation last message
     final index = _conversations.indexWhere(
       (conversation) => conversation.id == conversationId,
