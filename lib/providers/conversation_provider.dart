@@ -225,7 +225,6 @@ class ConversationProvider extends ChangeNotifier {
     required String content,
     String? id,
     bool isImage = false,
-    bool isNewLine = true,
     String? imageLocalPath,
     String? fileId,
   }) async {
@@ -252,7 +251,22 @@ class ConversationProvider extends ChangeNotifier {
       }
     }
 
-    if (isNewLine || _messages[conversationId]!.isEmpty) {
+    if (role != MessageRole.user &&
+        _messages[conversationId]!.last.role == MessageRole.assistant) {
+      final _content = _messages[conversationId]!.last.content + content;
+      final _Message = Message(
+        id: messageId,
+        conversationId: conversationId,
+        role: role,
+        content: _content,
+        timestamp: DateTime.now(),
+        isRead: role == MessageRole.user,
+        isImage: isImage,
+        imageLocalPath: imageLocalPath,
+        fileId: fileId,
+      );
+      _messages[conversationId]!.last = _Message;
+    } else {
       final newMessage = Message(
         id: messageId,
         conversationId: conversationId,
@@ -269,21 +283,7 @@ class ConversationProvider extends ChangeNotifier {
         ...(_messages[conversationId] ?? []),
         newMessage,
       ];
-    } else {
-      final _content = _messages[conversationId]!.last.content + content;
-      final _Message = Message(
-        id: messageId,
-        conversationId: conversationId,
-        role: role,
-        content: _content,
-        timestamp: DateTime.now(),
-        isRead: role == MessageRole.user,
-        isImage: isImage,
-        imageLocalPath: imageLocalPath,
-        fileId: fileId,
-      );
-      _messages[conversationId]!.last = _Message;
-    }
+    } 
     // Update conversation last message
     final index = _conversations.indexWhere(
       (conversation) => conversation.id == conversationId,

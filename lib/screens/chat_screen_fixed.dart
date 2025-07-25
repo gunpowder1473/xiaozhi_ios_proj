@@ -188,32 +188,19 @@ class _ChatScreenFixedState extends State<ChatScreenFixed> {
       listen: false,
     );
 
-    if (event.type == XiaozhiServiceEventType.steaming) {
+    if (event.type == XiaozhiServiceEventType.textMessage) {
       // 直接使用文本内容
       String content = event.data as String;
       print('收到消息内容: $content');
 
       // 忽略空消息
       if (content.isNotEmpty) {
-        if (ConversationProvider.formerSteamEnd[conversation.id] == true) {
-          ConversationProvider.formerSteamEnd[conversation.id] = false;
-          conversationProvider.addMessage(
-            conversationId: conversation.id,
-            role: MessageRole.assistant,
-            content: content,
-            isNewLine: true,
-          );
-        } else {
-          conversationProvider.addMessage(
-            conversationId: conversation.id,
-            role: MessageRole.assistant,
-            content: content,
-            isNewLine: false,
-          );
-        }
+        conversationProvider.addMessage(
+          conversationId: conversation.id,
+          role: MessageRole.assistant,
+          content: content,
+        );
       }
-    } else if (event.type == XiaozhiServiceEventType.steamEnd) {
-      ConversationProvider.formerSteamEnd[conversation.id] = true;
     } else if (event.type == XiaozhiServiceEventType.userMessage) {
       // 处理用户的语音识别文本
       String content = event.data as String;
@@ -236,6 +223,7 @@ class _ChatScreenFixedState extends State<ChatScreenFixed> {
       setState(() {});
     }
   }
+
   Future<void> _navigateToVoiceCall() async {
     final configProvider = Provider.of<ConfigProvider>(context, listen: false);
     final xiaozhiConfig = configProvider.xiaozhiConfigs.firstWhere(
