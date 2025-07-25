@@ -11,7 +11,7 @@
 - 可以连接多个
 - 配置服务里面websockets和ota地址不填默认就是连小智的ai后台，只有第一次创建服务并开启对话的时候会发送ota信息，目前写死了会升级到1.8.2，删掉当前对话重新添加以后会主动更新一次ota
 - 对话框中点击人物头像可以更换，对话框点击+可以更换对话背景
-- 添加了一个快捷指令支持，会跳转到指定的第一个对话，如果是iphone15以上的机型，可以绑定到action button
+- 添加了一个快捷指令支持，会跳转到置顶的第一个对话，如果是iphone15以上的机型，可以绑定到action button
 
 <img src="./Simulator Screenshot - iPhone 16 Pro - 2025-07-14 at 00.17.05.png" style="zoom:50%">
 <img src="./Simulator Screenshot - iPhone 16 Pro - 2025-07-14 at 00.17.32.png" style="zoom:50%">
