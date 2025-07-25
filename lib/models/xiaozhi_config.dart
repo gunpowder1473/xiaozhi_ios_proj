@@ -1,3 +1,5 @@
+import 'dart:ffi';
+
 class XiaozhiConfig {
   final id;
   final name;
@@ -5,6 +7,7 @@ class XiaozhiConfig {
   final otaUrl;
   final macAddress;
   final token;
+  final imgPath;
   
   XiaozhiConfig({
     required this.id,
@@ -13,6 +16,7 @@ class XiaozhiConfig {
     required this.otaUrl,
     required this.macAddress,
     required this.token,
+    required this.imgPath,
   });
   
   factory XiaozhiConfig.fromJson(Map<String, dynamic> json) {
@@ -23,6 +27,7 @@ class XiaozhiConfig {
       otaUrl: json['otaUrl'],
       macAddress: json['macAddress'],
       token: json['token'],
+      imgPath: json['imgPath'],
     );
   }
   
@@ -34,6 +39,7 @@ class XiaozhiConfig {
       'otaUrl': otaUrl,
       'macAddress': macAddress,
       'token': token,
+      'imgPath': imgPath,
     };
   }
   
@@ -43,6 +49,7 @@ class XiaozhiConfig {
     String? otaUrl,
     String? macAddress,
     String? token,
+    String? imgPath,
   }) {
     return XiaozhiConfig(
       id: id,
@@ -51,7 +58,9 @@ class XiaozhiConfig {
       otaUrl: otaUrl ?? this.otaUrl,
       macAddress: macAddress ?? this.macAddress,
       token: token ?? this.token,
+      imgPath: imgPath ?? this.imgPath,
     );
   }
+
 }
 

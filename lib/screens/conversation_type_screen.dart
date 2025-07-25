@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:ai_xiaozhi/providers/config_provider.dart';
-import 'package:ai_xiaozhi/providers/conversation_provider.dart';
-import 'package:ai_xiaozhi/models/conversation.dart';
-import 'package:ai_xiaozhi/models/xiaozhi_config.dart';
-import 'package:ai_xiaozhi/screens/chat_screen.dart';
+import 'package:xintong_ai/providers/config_provider.dart';
+import 'package:xintong_ai/providers/conversation_provider.dart';
+import 'package:xintong_ai/models/conversation.dart';
+import 'package:xintong_ai/models/xiaozhi_config.dart';
+import 'package:xintong_ai/screens/chat_screen.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class ConversationTypeScreen extends StatefulWidget {
   const ConversationTypeScreen({super.key});
@@ -539,6 +541,39 @@ class _ConversationTypeScreenState extends State<ConversationTypeScreen> {
   }
 
   void _createXiaozhiConversation(XiaozhiConfig config) async {
+    final otaUrl = config.otaUrl;
+    final macAddress = config.macAddress;
+    print('connct OTA url: $otaUrl');
+    if (otaUrl != '') {
+      final ota_post_data = {
+        "flash_size": 16777216,
+        "minimum_free_heap_size": 8318916,
+        "mac_address": macAddress,
+        "chip_model_name": "esp32s3",
+        "chip_info": {"model": 9, "cores": 2, "revision": 2, "features": 18},
+        "application": {"name": "xiaozhi", "version": "1.8.2"},
+        "partition_table": [],
+        "ota": {"label": "factory"},
+        "board": {
+          "type": "bread-compact-wifi",
+          "ip": "192.168.124.38",
+          "mac": macAddress,
+        },
+      };
+      final requestBody = jsonEncode(ota_post_data);
+      final response = await http.post(
+        Uri.parse(otaUrl),
+        headers: {"Device-Id": macAddress, "Content-Type": "application/json"},
+        body: requestBody,
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        print("OTA 成功， 固件版本：${data['firmware']['version']}");
+      } else {
+        // 特殊处理404 Conversation Not Exists错误
+        print('OTA 请求失败: ${response.statusCode}, 响应: ${response.body}');
+      }
+    }
     final conversation = await Provider.of<ConversationProvider>(
       context,
       listen: false,

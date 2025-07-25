@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:ai_xiaozhi/models/conversation.dart';
-import 'package:ai_xiaozhi/models/message.dart';
-import 'package:ai_xiaozhi/models/xiaozhi_config.dart';
-import 'package:ai_xiaozhi/providers/conversation_provider.dart';
-import 'package:ai_xiaozhi/services/xiaozhi_service.dart';
+import 'package:xintong_ai/models/conversation.dart';
+import 'package:xintong_ai/models/message.dart';
+import 'package:xintong_ai/models/xiaozhi_config.dart';
+import 'package:xintong_ai/providers/conversation_provider.dart';
+import 'package:xintong_ai/services/xiaozhi_service.dart';
 import 'dart:async';
-import 'dart:io';
 
 class VoiceCallScreen extends StatefulWidget {
   final Conversation conversation;
@@ -31,7 +30,6 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
   String _statusText = '正在连接...';
   Timer? _callTimer;
   Duration _callDuration = Duration.zero;
-  bool _serverReady = false;
 
   late AnimationController _animationController;
   final List<double> _audioLevels = List.filled(30, 0.05);
@@ -94,7 +92,6 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
     if (message is Map<String, dynamic> && message['type'] == 'hello') {
       print('收到服务器hello消息: $message');
       setState(() {
-        _serverReady = true;
       });
 
       // 服务器准备好后延迟短暂时间再自动开始录音
@@ -111,17 +108,23 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
     }
   }
 
+  Future<void> someCleaning() async{
+    await _xiaozhiService.switchToChatMode();
+    await _xiaozhiService.disconnectVoiceCall();
+  }
+
   @override
   void dispose() {
     // 切换回普通聊天模式
-    _xiaozhiService.switchToChatMode();
+    // _xiaozhiService.switchToChatMode();
     _callTimer?.cancel();
     _audioVisualizerTimer?.cancel();
     _animationController.dispose();
 
     // 确保停止所有音频播放
-    _xiaozhiService.stopPlayback();
-
+    // _xiaozhiService.disconnectVoiceCall();
+    // _xiaozhiService.stopPlayback();
+    // _xiaozhiService.disconnect();
     super.dispose();
   }
 
@@ -137,6 +140,9 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
       setState(() {
         _statusText = '已连接';
         _isConnected = true;
+        if (_xiaozhiService!.isMuted) {
+          _xiaozhiService!.toggleMute();
+        }
       });
 
       // 显示连接成功的提示
@@ -315,9 +321,10 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
           ),
           child: IconButton(
             icon: const Icon(Icons.arrow_back, color: Colors.white, size: 24),
-            onPressed: () {
+            onPressed: () async {
               // 返回前停止播放
-              _xiaozhiService.stopPlayback();
+              // _xiaozhiService.stopPlayback();
+              await someCleaning();
               Navigator.pop(context);
             },
           ),

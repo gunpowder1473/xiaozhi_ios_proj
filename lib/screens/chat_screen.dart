@@ -1,20 +1,22 @@
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'dart:math' as math;
 import 'dart:math';
 import 'dart:io';
-import 'package:provider/provider.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:ai_xiaozhi/models/conversation.dart';
-import 'package:ai_xiaozhi/models/message.dart';
-import 'package:ai_xiaozhi/models/xiaozhi_config.dart';
-import 'package:ai_xiaozhi/providers/conversation_provider.dart';
-import 'package:ai_xiaozhi/providers/config_provider.dart';
-import 'package:ai_xiaozhi/services/xiaozhi_service.dart';
-import 'package:ai_xiaozhi/widgets/message_bubble.dart';
-import 'package:ai_xiaozhi/screens/voice_call_screen.dart';
-import 'dart:convert';
 import 'dart:async';
+import 'package:provider/provider.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:image_cropper/image_cropper.dart';
+import 'package:xintong_ai/models/conversation.dart';
+import 'package:xintong_ai/models/message.dart';
+import 'package:xintong_ai/models/xiaozhi_config.dart';
+import 'package:xintong_ai/models/user_config.dart';
+import 'package:xintong_ai/providers/conversation_provider.dart';
+import 'package:xintong_ai/providers/config_provider.dart';
+import 'package:xintong_ai/providers/user_provider.dart';
+import 'package:xintong_ai/services/xiaozhi_service.dart';
+import 'package:xintong_ai/widgets/message_bubble.dart';
+import 'package:xintong_ai/screens/voice_call_screen.dart';
+import 'package:xintong_ai/utils/image_util.dart';
 import 'package:path_provider/path_provider.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -49,7 +51,7 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
-
+  
     // 设置状态栏为透明并使图标为黑色
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(
@@ -83,6 +85,7 @@ class _ChatScreenState extends State<ChatScreen> {
       // 如果是小智对话，初始化服务
       if (widget.conversation.type == ConversationType.xiaozhi) {
         _initXiaozhiService();
+
         // 添加定时器定期检查连接状态
         _connectionCheckTimer = Timer.periodic(const Duration(seconds: 2), (
           timer,
@@ -156,6 +159,9 @@ class _ChatScreenState extends State<ChatScreen> {
     if (_xiaozhiService != null) {
       _xiaozhiService!.stopPlayback();
       _xiaozhiService!.disconnect();
+      if (_xiaozhiService!.isMuted) {
+        _xiaozhiService!.toggleMute();
+      }
     }
 
     super.dispose();
@@ -167,19 +173,12 @@ class _ChatScreenState extends State<ChatScreen> {
     final xiaozhiConfig = configProvider.xiaozhiConfigs.firstWhere(
       (config) => config.id == widget.conversation.configId,
     );
-    String url = xiaozhiConfig.otaUrl as String;
-    print('config ota url: $url');
     _xiaozhiService = XiaozhiService(
       websocketUrl: xiaozhiConfig.websocketUrl,
       otaUrl: xiaozhiConfig.otaUrl,
       macAddress: xiaozhiConfig.macAddress,
       token: xiaozhiConfig.token,
     );
-    final updatedConfig = xiaozhiConfig.copyWith(otaUrl: '');
-    Provider.of<ConfigProvider>(
-      context,
-      listen: false,
-    ).updateXiaozhiConfig(updatedConfig);
 
     // 添加消息监听器
     _xiaozhiService!.addListener(_handleXiaozhiMessage);
@@ -251,251 +250,192 @@ class _ChatScreenState extends State<ChatScreen> {
         systemNavigationBarDividerColor: Colors.transparent,
       ),
     );
-
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 1,
-        toolbarHeight: 70,
-        systemOverlayStyle: const SystemUiOverlayStyle(
-          statusBarColor: Colors.transparent,
-          statusBarIconBrightness: Brightness.dark,
-          statusBarBrightness: Brightness.light,
+    final userProvider = Provider.of<UserProvider>(context);
+    final userConfig = userProvider.userConfigs.firstWhere(
+      (config) => config.id == widget.conversation.configId,
+      orElse:
+          () => UserConfig(
+            id: widget.conversation.configId,
+            backgroundPath: null,
+            sysIconPath: null,
+            selfIconPath: null,
+          ),
+    );
+    final imgPath = userConfig.backgroundPath;
+    final sysIconPath = userConfig.sysIconPath;
+    // print('will read from $imgPath/${xiaozhiConfig.id}.jpeg');
+    return Container(
+      decoration: BoxDecoration(
+        image: DecorationImage(
+          image: dynamicGetImageProviderWithDefault('$imgPath/${userConfig.id}.jpeg', 'default.jpeg'),
+          fit: BoxFit.cover,
         ),
-        actions: [
-          Container(
-            margin: const EdgeInsets.only(right: 12),
-            decoration: BoxDecoration(
-              color: Colors.transparent,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Material(
-              color: Colors.transparent,
-              borderRadius: BorderRadius.circular(12),
-              child: InkWell(
-                onTap: _navigateToVoiceCall,
+      ),
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 1,
+          toolbarHeight: 70,
+          systemOverlayStyle: const SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness: Brightness.dark,
+            statusBarBrightness: Brightness.light,
+          ),
+          actions: [
+            Container(
+              margin: const EdgeInsets.only(right: 12),
+              decoration: BoxDecoration(
+                color: Colors.transparent,
                 borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
+              ),
+              child: Material(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(12),
+                child: InkWell(
+                  onTap: _navigateToVoiceCall,
+                  borderRadius: BorderRadius.circular(12),
                   child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade300,
-                      borderRadius: BorderRadius.circular(8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
                     ),
-                    child: Icon(Icons.phone, color: Colors.black, size: 16),
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(Icons.phone, color: Colors.black, size: 16),
+                    ),
                   ),
                 ),
               ),
             ),
+          ],
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.black, size: 26),
+            onPressed: () {
+              // 返回前停止播放
+              if (_xiaozhiService != null) {
+                _xiaozhiService!.stopPlayback();
+              }
+              Navigator.of(context).pop();
+            },
           ),
-        ],
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black, size: 26),
-          onPressed: () {
-            // 返回前停止播放
-            if (_xiaozhiService != null) {
-              _xiaozhiService!.stopPlayback();
-            }
-            Navigator.of(context).pop();
-          },
-        ),
-        title: Row(
-          children: [
-            Container(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.grey.withOpacity(0.3),
-                    blurRadius: 8,
-                    spreadRadius: 0,
-                    offset: const Offset(0, 3),
+          title: Row(
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.3),
+                      blurRadius: 8,
+                      spreadRadius: 0,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: CircleAvatar(
+                  radius: 20,
+                  backgroundImage: dynamicGetImageProvider(
+                    '$sysIconPath/icon_${userConfig.id}.jpeg',
+                  ),
+                  backgroundColor: dynamicGetImageProvider(
+                                '$sysIconPath/icon_${userConfig.id}.jpeg',
+                              ) ==
+                              null
+                          ? (Colors.grey.shade700)
+                          : null,
+                  child:
+                      dynamicGetImageProvider(
+                                '$sysIconPath/icon_${userConfig.id}.jpeg',
+                              ) ==
+                              null
+                          ? (const Icon(
+                            Icons.mic,
+                            color: Colors.white,
+                            size: 22,
+                          ))
+                          : null,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.conversation.title,
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade200,
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.03),
+                          blurRadius: 1,
+                          spreadRadius: 0,
+                          offset: const Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                    child: _buildXiaozhiInfo(),
                   ),
                 ],
               ),
-              child: CircleAvatar(
-                radius: 20,
-                backgroundColor: Colors.grey.shade700,
-                child: const Icon(Icons.mic, color: Colors.white, size: 22),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  widget.conversation.title,
-                  style: const TextStyle(
-                    color: Colors.black,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade200,
-                    borderRadius: BorderRadius.circular(10),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.03),
-                        blurRadius: 1,
-                        spreadRadius: 0,
-                        offset: const Offset(0, 1),
-                      ),
-                    ],
-                  ),
-                  child: const Text(
-                    '语音',
-                    style: TextStyle(color: Colors.grey, fontSize: 12),
-                  ),
-                ),
-              ],
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
-      body: Column(
-        children: [
-          _buildXiaozhiInfo(),
-          Expanded(child: _buildMessageList()),
-          _buildInputArea(),
-        ],
+        body: Column(
+          children: [Expanded(child: _buildMessageList()), _buildInputArea()],
+        ),
       ),
     );
   }
 
   Widget _buildXiaozhiInfo() {
-    final configProvider = Provider.of<ConfigProvider>(context);
-    final xiaozhiConfig = configProvider.xiaozhiConfigs.firstWhere(
-      (config) => config.id == widget.conversation.configId,
-      orElse:
-          () => XiaozhiConfig(
-            id: '',
-            name: '未知服务',
-            websocketUrl: '',
-            otaUrl: '',
-            macAddress: '',
-            token: '',
-          ),
-    );
-
     final bool isConnected = _xiaozhiService?.isConnected ?? false;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      margin: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 6,
-            spreadRadius: 0,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          // 连接状态指示器
-          Container(
-            width: 10,
-            height: 10,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: isConnected ? Colors.green : Colors.red,
-              boxShadow: [
-                BoxShadow(
-                  color: (isConnected ? Colors.green : Colors.red).withOpacity(
-                    0.4,
-                  ),
-                  blurRadius: 4,
-                  spreadRadius: 1,
+    return Row(
+      children: [
+        // 连接状态指示器
+        Container(
+          width: 10,
+          height: 10,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: isConnected ? Colors.green : Colors.red,
+            boxShadow: [
+              BoxShadow(
+                color: (isConnected ? Colors.green : Colors.red).withOpacity(
+                  0.4,
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            isConnected ? '已连接' : '未连接',
-            style: TextStyle(
-              fontSize: 13,
-              color: isConnected ? Colors.green : Colors.red,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(width: 12),
-
-          // 分隔线
-          Container(width: 1, height: 16, color: Colors.grey.withOpacity(0.3)),
-          const SizedBox(width: 12),
-
-          // WebSocket信息
-          Expanded(
-            child: Text(
-              XiaozhiService.websocketUrl,
-              style: const TextStyle(
-                color: Colors.black54,
-                fontSize: 12,
-                fontWeight: FontWeight.w400,
+                blurRadius: 4,
+                spreadRadius: 1,
               ),
-              overflow: TextOverflow.ellipsis,
-            ),
+            ],
           ),
-
-          if (xiaozhiConfig.macAddress.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(left: 8),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey.shade200),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.04),
-                      blurRadius: 4,
-                      spreadRadius: 0,
-                      offset: const Offset(0, 1),
-                    ),
-                    BoxShadow(
-                      color: Colors.white.withOpacity(0.9),
-                      blurRadius: 3,
-                      spreadRadius: 0,
-                      offset: const Offset(0, -1),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.devices, size: 12, color: Colors.grey.shade500),
-                    const SizedBox(width: 4),
-                    Text(
-                      XiaozhiService.macAddress,
-                      style: TextStyle(
-                        color: Colors.grey.shade700,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-        ],
-      ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          isConnected ? '已连接' : '未连接',
+          style: TextStyle(
+            fontSize: 13,
+            color: isConnected ? Colors.green : Colors.red,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
     );
   }
 
@@ -503,7 +443,6 @@ class _ChatScreenState extends State<ChatScreen> {
     return Consumer<ConversationProvider>(
       builder: (context, provider, child) {
         final messages = provider.getMessages(widget.conversation.id);
-
         if (messages.isEmpty) {
           return Center(
             child: Text(
@@ -534,6 +473,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
                 isThinking: true,
                 conversationType: widget.conversation.type,
+                id: widget.conversation.configId,
               );
             }
 
@@ -544,6 +484,7 @@ class _ChatScreenState extends State<ChatScreen> {
               child: MessageBubble(
                 key: ValueKey(message.id),
                 message: message,
+                id: widget.conversation.configId,
                 conversationType: widget.conversation.type,
               ),
             );
@@ -649,6 +590,9 @@ class _ChatScreenState extends State<ChatScreen> {
                     onPressed: () {
                       setState(() {
                         _isVoiceInputMode = true;
+                        if (_xiaozhiService!.isMuted) {
+                          _xiaozhiService!.toggleMute();
+                        }
                       });
                     },
                     padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -687,6 +631,80 @@ class _ChatScreenState extends State<ChatScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
+          IconButton(
+            icon: const Icon(
+              Icons.add,
+              color: Color.fromARGB(255, 207, 207, 213),
+              size: 24,
+            ),
+            onPressed: () async {
+              final userProvider = Provider.of<UserProvider>(
+                context,
+                listen: false,
+              );
+              late final userConfig;
+              try {
+                userConfig = userProvider.userConfigs.firstWhere(
+                  (config) => config.id == widget.conversation.configId,
+                );
+              } catch (e) {
+                userConfig = await userProvider.addUserConfig(widget.conversation.configId);
+              }
+              final picker = ImagePicker();
+              final pickedFile = await picker.pickImage(
+                source: ImageSource.gallery,
+              );
+              if (pickedFile == null) {
+                return;
+              }
+              String id = userConfig.id;
+              File imageFile = File(pickedFile.path);
+              CroppedFile? croppedFile = await cropImage(imageFile);
+              if (croppedFile == null) {
+                return;
+              }
+              // Add user image
+              File file = File(croppedFile.path);
+              final appDir = await getApplicationDocumentsDirectory();
+              final imgDir = Directory(
+                '${appDir.path}/specific/$id/images',
+              );
+              if (!await imgDir.exists()) {
+                await imgDir.create(recursive: true);
+              }
+              // 保存到文件系统
+              await file.copy('${imgDir.path}/$id.jpeg');
+              String path = '${imgDir.path}/$id.jpeg';
+              final updatedConfig = userConfig.copyWith(
+                          backgroundPath: imgDir.path,
+                        );
+              await userProvider.updateUserConfig(updatedConfig);
+              if (path != null) {
+                await (FileImage(File(path!))..evict());
+              }
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Text('对话背景已修改'),
+                  backgroundColor: Colors.green.shade600,
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  margin: const EdgeInsets.all(10),
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue,
+              foregroundColor: Colors.white,
+              elevation: 4,
+              shadowColor: Colors.blue.withOpacity(0.3),
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
           Expanded(
             child: GestureDetector(
               onLongPressStart: (details) {
@@ -827,6 +845,9 @@ class _ChatScreenState extends State<ChatScreen> {
                     _isVoiceInputMode = false;
                     _isRecording = false;
                     _isCancelling = false;
+                    if (!_xiaozhiService!.isMuted) {
+                      _xiaozhiService!.toggleMute();
+                    }
                   });
                 },
                 child: Padding(
@@ -853,7 +874,14 @@ class _ChatScreenState extends State<ChatScreen> {
         color: hasText ? Colors.black : const Color(0xFFC4C9D2),
         size: 24,
       ),
-      onPressed: hasText ? _sendMessage : null,
+      onPressed:() {
+        if (!_xiaozhiService!.isMuted) {
+          _xiaozhiService!.toggleMute();
+        }
+        if (hasText) {
+          _sendMessage();
+        }
+      },
       padding: const EdgeInsets.symmetric(horizontal: 12),
       constraints: const BoxConstraints(),
       splashRadius: 22,
@@ -869,7 +897,6 @@ class _ChatScreenState extends State<ChatScreen> {
       });
       return;
     }
-
     try {
       // 震动反馈
       HapticFeedback.mediumImpact();
@@ -1008,7 +1035,9 @@ class _ChatScreenState extends State<ChatScreen> {
         // 刷新UI显示连接状态
         setState(() {});
       }
-
+      if (!_xiaozhiService!.isMuted) {
+        _xiaozhiService!.toggleMute();
+      }
       // 发送消息
       await _xiaozhiService!.sendTextMessage(message);
     } catch (e) {

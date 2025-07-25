@@ -1,115 +1,254 @@
 import 'dart:math';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:intl/intl.dart';
-import 'package:ai_xiaozhi/models/message.dart';
+import 'package:xintong_ai/models/message.dart';
 import 'package:provider/provider.dart';
-import 'package:ai_xiaozhi/providers/conversation_provider.dart';
-import 'package:ai_xiaozhi/models/conversation.dart';
+import 'package:xintong_ai/models/user_config.dart';
+import 'package:xintong_ai/providers/user_provider.dart';
+import 'package:xintong_ai/models/conversation.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:image_cropper/image_cropper.dart';
+import 'package:xintong_ai/utils/image_util.dart';
 
 class MessageBubble extends StatelessWidget {
   final Message message;
   final bool isThinking;
   final ConversationType? conversationType;
+  final String id;
 
   const MessageBubble({
     super.key,
     required this.message,
     this.isThinking = false,
     this.conversationType,
+    required this.id,
   });
 
   @override
   Widget build(BuildContext context) {
     final isUser = message.role == MessageRole.user;
-    final isSystem = message.role == MessageRole.system;
-
-    // 系统消息使用不同的展示方式
-    if (isSystem) {
-      return _buildSystemMessage(context);
-    }
-
+    // final isSystem = message.role == MessageRole.system;
+    // // 系统消息使用不同的展示方式
+    // if (isSystem) {
+    //   return _buildSystemMessage(context);
+    // }
+  
     // 使用更高效的布局
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
-        mainAxisAlignment:
-            isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (!isUser) _buildAvatar(context),
-          const SizedBox(width: 12),
-          Flexible(
-            child: Column(
-              crossAxisAlignment:
-                  isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding:
-                      message.isImage
-                          ? const EdgeInsets.all(4)
-                          : const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                  decoration: BoxDecoration(
-                    color: isUser ? const Color(0xFF4B5563) : Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border:
-                        !isUser
-                            ? Border.all(color: Colors.grey.shade200)
-                            : null,
-                  ),
-                  // 检查是否为图片消息
-                  child:
-                      isThinking
-                          ? _buildThinkingIndicator(context)
-                          : message.isImage
-                          ? _buildImageContent(context)
-                          : Text(
-                            message.content,
-                            style: TextStyle(
-                              color: isUser ? Colors.white : Colors.black87,
-                              fontSize: 15,
-                              // 添加高性能的文本渲染选项
-                              height: 1.3,
-                              leadingDistribution: TextLeadingDistribution.even,
-                            ),
-                          ),
+    return Consumer<UserProvider>(
+      builder: (context, userProvider, child) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: Row(
+            mainAxisAlignment:
+                isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (!isUser) _buildAvatar(context, userProvider),
+              const SizedBox(width: 12),
+              Flexible(
+                child: Column(
+                  crossAxisAlignment:
+                      isUser
+                          ? CrossAxisAlignment.end
+                          : CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding:
+                          message.isImage
+                              ? const EdgeInsets.all(4)
+                              : const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                      decoration: BoxDecoration(
+                        color:
+                            isUser
+                                ? const Color.fromARGB(255, 16, 200, 84)
+                                : const Color.fromARGB(255, 16, 200, 84),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      // 检查是否为图片消息
+                      child:
+                          isThinking
+                              ? _buildThinkingIndicator(context)
+                              : message.isImage
+                              ? _buildImageContent(context)
+                              : Text(
+                                message.content,
+                                style: TextStyle(
+                                  color:
+                                      isUser ? Colors.black87 : Colors.black87,
+                                  fontSize: 15,
+                                  // 添加高性能的文本渲染选项
+                                  height: 1.3,
+                                  leadingDistribution:
+                                      TextLeadingDistribution.even,
+                                ),
+                              ),
+                    ),
+                    const SizedBox(height: 4),
+                    if (message.timestamp != null)
+                      Text(
+                        _formatTime(message.timestamp),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade500,
+                        ),
+                      ),
+                  ],
                 ),
-                const SizedBox(height: 4),
-                if (message.timestamp != null)
-                  Text(
-                    _formatTime(message.timestamp),
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
-                  ),
-              ],
+              ),
+              const SizedBox(width: 12),
+              if (isUser) _buildAvatar(context, userProvider),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildAvatar(BuildContext context, UserProvider userProvider) {
+    final isUser = message.role == MessageRole.user;
+    final userConfig = userProvider.userConfigs.firstWhere(
+      (config) => config.id == id,
+      orElse:
+          () => UserConfig(
+            id: id,
+            backgroundPath: null,
+            sysIconPath: null,
+            selfIconPath: null,
+          ),
+    );
+    final selfConfig = userProvider.userConfigs.firstWhere(
+      (config) => config.id == "magic",
+      orElse:
+          () => UserConfig(
+            id: 'magic',
+            backgroundPath: null,
+            sysIconPath: null,
+            selfIconPath: null,
+          ),
+    );
+    if (isUser) {
+      return CircleAvatar(
+        radius: 16,
+        backgroundImage: dynamicGetImageProviderWithDefault('${selfConfig.selfIconPath}/self.jpeg', 'nora.png'),
+        child: ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.transparent,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
             ),
           ),
-          const SizedBox(width: 12),
-          if (isUser) const SizedBox(width: 32, height: 32),
-        ],
-      ),
-    );
-  }
+          onPressed: () async {
+            final picker = ImagePicker();
+            final pickedFile = await picker.pickImage(
+              source: ImageSource.gallery,
+            );
 
-  Widget _buildAvatar(BuildContext context) {
-    if (message.role == MessageRole.user) {
-      return const SizedBox(width: 32, height: 32);
+            if (pickedFile != null) {
+              File imageFile = File(pickedFile.path);
+              CroppedFile? croppedFile = await cropImage(imageFile);
+              if (croppedFile != null) {
+                File file = File(croppedFile.path);
+                final appDir = await getApplicationDocumentsDirectory();
+                final imgDir = Directory('${appDir.path}/specific/self_icon');
+                if (!await imgDir.exists()) {
+                  await imgDir.create(recursive: true);
+                }
+                // 保存到文件系统
+                await file.copy('${imgDir.path}/self.jpeg');
+                await (FileImage(
+                  File('${imgDir.path}/self.jpeg'),
+                ).evict());
+                print("icon saved to ${imgDir.path}/self.jpeg");
+                if(selfConfig.selfIconPath != null) {
+                  final updatedConfig = selfConfig.copyWith(
+                    selfIconPath: imgDir.path,
+                  );
+                  userProvider.updateUserConfig(updatedConfig);
+                } else {
+                  userProvider.addUserConfig('magic', selfIconPath: imgDir.path);
+                }
+              }
+            }
+          },
+          child: null,
+        ),
+      );
+    } else {
+      return CircleAvatar(
+        radius: 16,
+        backgroundImage: dynamicGetImageProvider(
+          '${userConfig.sysIconPath}/icon_$id.jpeg',
+        ),
+        backgroundColor:
+            dynamicGetImageProvider(
+                      '${userConfig.sysIconPath}/icon_$id.jpeg',
+                    ) ==
+                    null
+                ? const Color.fromARGB(255, 151, 162, 155)
+                : null,
+        child: ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.transparent,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            padding: EdgeInsets.zero, // 关键点1：移除默认内边距
+            minimumSize: Size.zero, // 关键点2：取消最小尺寸限制
+          ),
+          onPressed: () async {
+            final picker = ImagePicker();
+            final pickedFile = await picker.pickImage(
+              source: ImageSource.gallery,
+            );
+
+            if (pickedFile != null) {
+              File imageFile = File(pickedFile.path);
+              CroppedFile? croppedFile = await cropImage(imageFile);
+              if (croppedFile != null) {
+                File file = File(croppedFile.path);
+                final appDir = await getApplicationDocumentsDirectory();
+                final imgDir = Directory('${appDir.path}/specific/$id/images');
+                if (!await imgDir.exists()) {
+                  await imgDir.create(recursive: true);
+                }
+                // 保存到文件系统
+                await file.copy('${imgDir.path}/icon_$id.jpeg');
+                await (FileImage(
+                  File('${imgDir.path}/icon_$id.jpeg'),
+                ).evict());
+                print("icon saved to ${imgDir.path}/icon_$id.jpeg");
+                if (userConfig.sysIconPath != null) {
+                  final updatedConfig = userConfig.copyWith(
+                    sysIconPath: imgDir.path,
+                  );
+                  userProvider.updateUserConfig(updatedConfig);
+                } else {
+                  userProvider.addUserConfig(id, sysIconPath: imgDir.path);
+                }
+              }
+            }
+          },
+          child:
+          Container(
+            alignment: Alignment.center, // 直接控制对齐方式
+            child:
+                dynamicGetImageProvider(
+                          '${userConfig.sysIconPath}/icon_${userConfig.id}.jpeg',
+                        ) ==
+                        null
+                    ? const Icon(Icons.mic)
+                    : null,
+          ),
+        ),
+      );
     }
-
-    final isDify = conversationType == ConversationType.dify;
-
-    return CircleAvatar(
-      radius: 16,
-      backgroundColor: isDify ? Colors.blue.shade400 : Colors.grey.shade700,
-      child: Icon(
-        isDify ? Icons.chat_bubble_outline : Icons.mic,
-        size: isDify ? 16 : 18,
-        color: Colors.white,
-      ),
-    );
   }
+
 
   Widget _buildThinkingIndicator(BuildContext context) {
     return Row(

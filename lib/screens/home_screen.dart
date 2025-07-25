@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:ai_xiaozhi/providers/conversation_provider.dart';
-import 'package:ai_xiaozhi/models/conversation.dart';
-import 'package:ai_xiaozhi/screens/chat_screen.dart';
-import 'package:ai_xiaozhi/screens/settings_screen.dart';
-import 'package:ai_xiaozhi/screens/conversation_type_screen.dart';
-import 'package:ai_xiaozhi/widgets/conversation_tile.dart';
-import 'package:ai_xiaozhi/widgets/slidable_delete_tile.dart';
-import 'package:flutter/rendering.dart';
+import 'package:xintong_ai/providers/conversation_provider.dart';
+import 'package:xintong_ai/models/conversation.dart';
+import 'package:xintong_ai/screens/chat_screen.dart';
+import 'package:xintong_ai/screens/settings_screen.dart';
+import 'package:xintong_ai/screens/conversation_type_screen.dart';
+import 'package:xintong_ai/widgets/conversation_tile.dart';
+import 'package:xintong_ai/widgets/slidable_delete_tile.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -40,7 +38,10 @@ class _HomeScreenState extends State<HomeScreen> {
         extendBody: true,
         extendBodyBehindAppBar: true,
         backgroundColor: const Color(0xFFF8F9FA),
-        appBar:AppBar(
+        appBar:
+            _selectedIndex == 1
+                ? null
+                : AppBar(
                   title: const Text(
                     '消息',
                     style: TextStyle(

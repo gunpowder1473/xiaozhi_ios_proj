@@ -4,8 +4,7 @@ class Conversation {
   final String id;
   final String title;
   final ConversationType type;
-  final String
-  configId; // For both Xiaozhi and Dify conversations, references the config
+  final String configId; // For both Xiaozhi and Dify conversations, references the config
   final DateTime lastMessageTime;
   final String lastMessage;
   final int unreadCount;
@@ -56,6 +55,7 @@ class Conversation {
     String? lastMessage,
     int? unreadCount,
     bool? isPinned,
+    String? imgPath,
   }) {
     return Conversation(
       id: id,

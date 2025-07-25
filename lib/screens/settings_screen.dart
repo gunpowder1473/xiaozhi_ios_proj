@@ -1,13 +1,15 @@
-import 'package:flutter/material.dart';
-import 'dart:math' as math;
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
-import 'package:ai_xiaozhi/providers/theme_provider.dart';
-import 'package:ai_xiaozhi/providers/config_provider.dart';
-import 'package:ai_xiaozhi/models/xiaozhi_config.dart';
-import 'package:ai_xiaozhi/widgets/settings_section.dart';
+import 'package:xintong_ai/providers/theme_provider.dart';
+import 'package:xintong_ai/providers/config_provider.dart';
+import 'package:xintong_ai/models/xiaozhi_config.dart';
+import 'package:xintong_ai/providers/user_provider.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:image_cropper/image_cropper.dart';
+import 'package:xintong_ai/utils/image_util.dart';
+import 'package:flutter/material.dart';
 
-// 引入main.dart中定义的常量
-import 'package:ai_xiaozhi/main.dart' show enableDebugTools;
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -590,7 +592,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                     ),
                     const SizedBox(height: 16),
                     const Text(
-                      'WebSocket地址',
+                      'WebSocket地址（可选）',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
@@ -626,7 +628,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                     ),
                     const SizedBox(height: 16),
                     const Text(
-                      'OTA 地址',
+                      'OTA 地址（可选）',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
@@ -762,7 +764,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                     ),
                     const SizedBox(height: 24),
                     ElevatedButton(
-                      onPressed: () {
+                      onPressed: () async {
                         final name = nameController.text.trim();
                         final websocketUrl = websocketUrlController.text.trim();
                         final otaUrl = otaUrlController.text.trim();
@@ -783,7 +785,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                           return;
                         }
 
-                        Provider.of<ConfigProvider>(
+                        final id = await Provider.of<ConfigProvider>(
                           context,
                           listen: false,
                         ).addXiaozhiConfig(
@@ -794,6 +796,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                               otaUrl.isNotEmpty ? otaUrl : null,
                           customMacAddress:
                               macAddress.isNotEmpty ? macAddress : null,
+                          customToken: token.isEmpty ? token : null,
                         );
 
                         Navigator.pop(context);
@@ -856,9 +859,7 @@ class _SettingsScreenState extends State<SettingsScreen>
 
   void _showEditXiaozhiConfigDialog(XiaozhiConfig config) {
     final nameController = TextEditingController(text: config.name);
-    final websocketUrlController = TextEditingController(
-      text: config.websocketUrl,
-    );
+    final websocketUrlController = TextEditingController(text: config.websocketUrl);
     final otaUrlController = TextEditingController(text: config.otaUrl);
     final macAddressController = TextEditingController(text: config.macAddress);
     final tokenController = TextEditingController(text: config.token);
@@ -1110,7 +1111,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                     ),
                     const SizedBox(height: 24),
                     ElevatedButton(
-                      onPressed: () {
+                      onPressed: () async {
                         final name = nameController.text.trim();
                         final websocketUrl = websocketUrlController.text.trim();
                         final otaUrl = otaUrlController.text.trim();
@@ -1143,7 +1144,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                           token: token.isNotEmpty ? token : config.token,
                         );
 
-                        Provider.of<ConfigProvider>(
+                        final id = await Provider.of<ConfigProvider>(
                           context,
                           listen: false,
                         ).updateXiaozhiConfig(updatedConfig);

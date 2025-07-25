@@ -107,8 +107,13 @@ class XiaozhiService {
     _init();
   }
 
-  XiaozhiService._resetAddr(String? websocketUrl, String? otaUrl, String? macAddress, String? token, String? sessionId)
-  {
+  XiaozhiService._resetAddr(
+    String? websocketUrl,
+    String? otaUrl,
+    String? macAddress,
+    String? token,
+    String? sessionId,
+  ) {
     XiaozhiService.websocketUrl = websocketUrl ?? XiaozhiService.websocketUrl;
     XiaozhiService.macAddress = macAddress ?? XiaozhiService.macAddress;
     XiaozhiService.otaUrl = otaUrl ?? XiaozhiService.otaUrl;
@@ -215,47 +220,6 @@ class XiaozhiService {
 
     try {
       print('$TAG: 开始连接服务器...');
-      print('$TAG: OTA url: $otaUrl');
-      if (otaUrl != '') {
-        final ota_post_data = {
-          "flash_size": 16777216,
-          "minimum_free_heap_size": 8318916,
-          "mac_address": macAddress,
-          "chip_model_name": "esp32s3",
-          "chip_info": {"model": 9, "cores": 2, "revision": 2, "features": 18},
-          "application": {"name": "xiaozhi", "version": "1.7.6"},
-          "partition_table": [],
-          "ota": {"label": "factory"},
-          "board": {
-            "type": "bread-compact-wifi",
-            "ip": "192.168.124.38",
-            "mac": macAddress,
-          },
-        };
-        final requestBody = jsonEncode(ota_post_data);
-        final response = await http.post(
-          Uri.parse(otaUrl),
-          headers: {
-            "Device-Id": macAddress,
-            "Content-Type": "application/json",
-          },
-          body: requestBody,
-        );
-        if (response.statusCode == 200) {
-          final data = jsonDecode(response.body);
-          _dispatchEvent(
-            XiaozhiServiceEvent(
-              XiaozhiServiceEventType.textMessage,
-              "OTA 成功， 固件版本：${data['firmware']['version']}",
-            ),
-          );
-        } else {
-          // 特殊处理404 Conversation Not Exists错误
-          throw Exception(
-            'OTA 请求失败: ${response.statusCode}, 响应: ${response.body}',
-          );
-        }
-      }
       // 创建WebSocket管理器
       _webSocketManager = XiaozhiWebSocketManager(
         deviceId: macAddress,
@@ -408,10 +372,6 @@ class XiaozhiService {
     if (_webSocketManager == null) return;
 
     try {
-      // 停止音频录制
-      if (AudioUtil.isRecording) {
-        await AudioUtil.stopRecording();
-      }
 
       // 停止音频播放
       await AudioUtil.stopPlaying();
@@ -599,6 +559,7 @@ class XiaozhiService {
       final request = {'type': _isMuted ? 'voice_mute' : 'voice_unmute'};
 
       _webSocketManager!.sendMessage(jsonEncode(request));
+      print('$TAG: 切换静音状态：$_isMuted');
     } catch (e) {
       print('$TAG: 切换静音状态失败: $e');
     }
@@ -627,8 +588,10 @@ class XiaozhiService {
 
       case XiaozhiEventType.binaryMessage:
         // 处理二进制音频数据 - 简化直接播放
-        final audioData = event.data as List<int>;
-        AudioUtil.playOpusData(Uint8List.fromList(audioData));
+        if (!_isMuted) {
+          final audioData = event.data as List<int>;
+          AudioUtil.playOpusData(Uint8List.fromList(audioData));
+        }
         break;
 
       case XiaozhiEventType.error:
@@ -692,9 +655,7 @@ class XiaozhiService {
               XiaozhiServiceEvent(XiaozhiServiceEventType.textMessage, text),
             );
           }
-          if (state == 'start') {
-            
-          }
+          if (state == 'start') {}
           if (state == 'stop') {
             if (_isVoiceCallActive) {
               _sendListenMessage();

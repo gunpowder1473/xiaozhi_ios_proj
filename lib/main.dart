@@ -1,21 +1,24 @@
+import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:timeago/timeago.dart' as timeago;
-import 'package:ai_xiaozhi/providers/theme_provider.dart';
-import 'package:ai_xiaozhi/providers/config_provider.dart';
-import 'package:ai_xiaozhi/providers/conversation_provider.dart';
-import 'package:ai_xiaozhi/screens/home_screen.dart';
-import 'package:ai_xiaozhi/screens/settings_screen.dart';
-import 'package:ai_xiaozhi/utils/app_theme.dart';
+import 'package:xintong_ai/providers/theme_provider.dart';
+import 'package:xintong_ai/providers/config_provider.dart';
+import 'package:xintong_ai/providers/conversation_provider.dart';
+import 'package:xintong_ai/providers/user_provider.dart';
+import 'package:xintong_ai/screens/home_screen.dart';
+import 'package:xintong_ai/screens/settings_screen.dart';
+import 'package:xintong_ai/screens/chat_screen_fixed.dart';
+import 'package:xintong_ai/utils/app_theme.dart';
 import 'package:opus_flutter/opus_flutter.dart' as opus_flutter;
 import 'package:opus_dart/opus_dart.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:flutter/foundation.dart';
-import 'dart:io';
-import 'dart:ui';
-import 'package:ai_xiaozhi/utils/audio_util.dart';
-import 'package:flutter_displaymode/flutter_displaymode.dart';
+import 'package:go_router/go_router.dart';
+import 'package:xintong_ai/utils/audio_util.dart';
+import 'package:intelligence/intelligence.dart';
+import 'package:intelligence/model/representable.dart';
 
 // 是否启用调试工具
 const bool enableDebugTools = true;
@@ -43,17 +46,12 @@ void main() async {
   PaintingBinding.instance.imageCache.maximumSizeBytes =
       100 * 1024 * 1024; // 100 MB
 
-
   // 请求录音和存储权限
-  await [
-    Permission.microphone,
-    Permission.storage,
-  ].request();
+  await [Permission.microphone, Permission.storage].request();
 
   // 添加中文本地化支持
   timeago.setLocaleMessages('zh', timeago.ZhMessages());
   timeago.setDefaultLocale('zh');
-
 
   // 初始化Opus库
   try {
@@ -74,12 +72,14 @@ void main() async {
 
   // 初始化配置管理
   final configProvider = ConfigProvider();
+  final userProvider = UserProvider();
 
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider.value(value: configProvider),
+        ChangeNotifierProvider.value(value: userProvider),
         ChangeNotifierProvider(create: (_) => ConversationProvider()),
       ],
       child: const MyApp(),
@@ -108,20 +108,70 @@ Future<void> _setupSystemUI() async {
   );
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  final _intelligencePlugin = Intelligence();
+  final _receivedItems = [];
+  static final GoRouter _router = GoRouter(
+    routes: <RouteBase>[
+      GoRoute(
+        path: '/',
+        name: 'home',
+        builder: (BuildContext context, GoRouterState state) {
+          return const HomeScreen();
+        },
+      ),
+      GoRoute(
+        path: '/chat',
+        name: 'chat',
+        builder: (BuildContext context, GoRouterState state) {
+          return const ChatScreenFixed();
+        },
+      ),]
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(init());
+  }
+
+  Future<void> init() async {
+    try {
+      await _intelligencePlugin.populate(const [
+        Representable(representation: '聊天', id: 'chat'),
+      ]);
+      _intelligencePlugin.selectionsStream().listen(_handleSelection);
+    } on PlatformException catch (e) {
+      debugPrint(e.toString());
+    }
+  }
+
+  void _handleSelection(String id) {
+    setState(() {
+      _receivedItems.add(id);
+    });
+    _MyAppState._router.push('/chat');
+  }
 
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
+    // 路由配置
 
-    return MaterialApp(
+    return MaterialApp.router(
       title: 'AI_For_XinTong',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: themeProvider.themeMode,
-      home: const HomeScreen(),
+      routerConfig: _router,
       // 添加平滑滚动设置
       scrollBehavior: const MaterialScrollBehavior().copyWith(
         // 启用物理滚动

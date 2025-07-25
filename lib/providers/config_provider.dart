@@ -1,12 +1,9 @@
 import 'dart:convert';
-import 'dart:io';
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:crypto/crypto.dart';
-import 'package:uuid/uuid.dart';
-import 'package:ai_xiaozhi/models/xiaozhi_config.dart';
+import 'package:xintong_ai/models/xiaozhi_config.dart';
 
 class ConfigProvider extends ChangeNotifier {
   List<XiaozhiConfig> _xiaozhiConfigs = [];
@@ -42,20 +39,25 @@ class ConfigProvider extends ChangeNotifier {
     await prefs.setStringList('xiaozhiConfigs', xiaozhiConfigsJson);
   }
 
-  Future<void> addXiaozhiConfig(
-    String name,
-    {String? customWebsocketUrl,
+  Future<String> addXiaozhiConfig(
+    String name, {
+    String? customWebsocketUrl,
     String? customOtaUrl,
-    String? customMacAddress,}
-  ) async {
+    String? customMacAddress,
+    String? customToken,
+    String? imgPath,
+  }) async {
     // 如果提供了自定义MAC地址，直接使用；否则使用设备ID生成
     final macAddress;
     final otaUrl;
     final websocketUrl;
-    customOtaUrl = customOtaUrl=='-1' ? "" : customWebsocketUrl;
+    final token;
+
+    customOtaUrl = customOtaUrl == '-1' ? "" : customOtaUrl;
     websocketUrl = customWebsocketUrl ?? 'wss://api.tenclass.net/xiaozhi/v1/';
     otaUrl = customOtaUrl ?? 'https://api.tenclass.net/xiaozhi/ota/';
     macAddress = customMacAddress ?? await _getDeviceMacAddress();
+    token = customToken ?? 'test-token';
 
     final newConfig = XiaozhiConfig(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -63,15 +65,17 @@ class ConfigProvider extends ChangeNotifier {
       websocketUrl: websocketUrl,
       otaUrl: otaUrl,
       macAddress: macAddress,
-      token: 'test-token',
+      token: token,
+      imgPath: imgPath,
     );
 
     _xiaozhiConfigs.add(newConfig);
     await _saveConfigs();
     notifyListeners();
+    return newConfig.id;
   }
 
-  Future<void> updateXiaozhiConfig(XiaozhiConfig updatedConfig) async {
+  Future<String> updateXiaozhiConfig(XiaozhiConfig updatedConfig) async {
     final index = _xiaozhiConfigs.indexWhere(
       (config) => config.id == updatedConfig.id,
     );
@@ -80,6 +84,7 @@ class ConfigProvider extends ChangeNotifier {
       await _saveConfigs();
       notifyListeners();
     }
+    return updatedConfig.id;
   }
 
   Future<void> deleteXiaozhiConfig(String id) async {

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:ai_xiaozhi/providers/config_provider.dart';
-import 'package:ai_xiaozhi/providers/conversation_provider.dart';
-import 'package:ai_xiaozhi/models/conversation.dart';
-import 'package:ai_xiaozhi/models/xiaozhi_config.dart';
-import 'package:ai_xiaozhi/screens/chat_screen.dart';
+import 'package:xintong_ai/providers/config_provider.dart';
+import 'package:xintong_ai/providers/conversation_provider.dart';
+import 'package:xintong_ai/models/conversation.dart';
+import 'package:xintong_ai/models/xiaozhi_config.dart';
+import 'package:xintong_ai/screens/chat_screen.dart';
 
 class XiaozhiConfigSelectorScreen extends StatelessWidget {
   const XiaozhiConfigSelectorScreen({super.key});
